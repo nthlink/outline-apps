@@ -1,0 +1,17 @@
+{
+    "appId": "org.outline.client",
+    "appName": "Outline",
+    "webDir": "www",
+    "bundledWebRuntime": false,
+    "android": {
+        "path": "client/android"
+    },
+    "ios": {
+        "path": "client/ios"
+    },
+    "plugins": {
+        "SplashScreen": {
+            "launchautohide": true
+        }
+    }
+}
