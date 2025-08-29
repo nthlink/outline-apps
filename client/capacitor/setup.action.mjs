@@ -12,28 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import url from 'url';
 import fs from 'fs/promises';
 import path from 'path';
 import {spawnStream} from '@outline/infrastructure/build/spawn_stream.mjs';
 import {getRootDir} from '@outline/infrastructure/build/get_root_dir.mjs';
 
-const root = getRootDir();
-const clientRoot = path.resolve(root, 'client');
-const capRoot = path.resolve(root, 'client', 'capacitor');
-const www = path.join(clientRoot, 'www');
-const exists = p => fs.access(p).then(() => true, () => false);
+export async function main(..._argv) {
+  const root = getRootDir();
+  const clientRoot = path.resolve(root, 'client');
+  const capRoot = path.resolve(root, 'client', 'capacitor');
+  const www = path.join(clientRoot, 'www');
+  const exists = (p) => fs.access(p).then(() => true, () => false);
 
-// 1) Always build web assets
-await spawnStream('npm', 'run', 'action', 'client/src/www/build');
+  // 1) Always build web assets
+  await spawnStream('npm', 'run', 'action', 'client/src/www/build');
 
-// 2) Ensure index.html (fallback to index_cordova.html)
-const idx = path.join(www, 'index.html');
-const idxCord = path.join(www, 'index_cordova.html');
-if (!(await exists(idx)) && (await exists(idxCord))) {
-  await fs.copyFile(idxCord, idx);
+  // 2) Ensure index.html (fallback to index_cordova.html)
+  const idx = path.join(www, 'index.html');
+  const idxCord = path.join(www, 'index_cordova.html');
+  if (!(await exists(idx)) && (await exists(idxCord))) {
+    await fs.copyFile(idxCord, idx);
+  }
+
+  // 3) Generate icons/splashes, then sync (run from Capacitor root, and restore cwd after)
+  const prevCwd = process.cwd();
+  try {
+    process.chdir(capRoot);
+    await spawnStream('npx', 'capacitor-assets', 'generate');
+    await spawnStream('npx', 'cap', 'sync');
+  } finally {
+    process.chdir(prevCwd);
+  }
 }
 
-// 3) Generate icons/splashes, then sync (run from Capacitor root)
-process.chdir(capRoot);
-await spawnStream('npx', 'capacitor-assets', 'generate');
-await spawnStream('npx', 'cap', 'sync');
+// Only run if invoked directly
+if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
+  await main(...process.argv.slice(2));
+}

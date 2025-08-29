@@ -14,16 +14,23 @@
 
 import url from 'url';
 import path from 'path';
-import {fileURLToPath} from 'url';
 import {spawnStream} from '@outline/infrastructure/build/spawn_stream.mjs';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import {getRootDir} from '@outline/infrastructure/build/get_root_dir.mjs';
 
 export async function main(...argv) {
-  process.chdir(__dirname); // ensure Capacitor runs from client/capacitor
-  await spawnStream('npx', 'cap', 'open', ...argv);
+  const root = getRootDir();
+  const capRoot = path.resolve(root, 'client', 'capacitor');
+
+  const prevCwd = process.cwd();
+  try {
+    process.chdir(capRoot);                // ensure Capacitor resolves config/project
+    await spawnStream('npx', 'cap', 'open', ...argv);
+  } finally {
+    process.chdir(prevCwd);               // restore original working dir
+  }
 }
 
+// Only run if invoked directly
 if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
   await main(...process.argv.slice(2));
 }
