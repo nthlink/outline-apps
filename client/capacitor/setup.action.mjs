@@ -23,17 +23,15 @@ export async function main(..._argv) {
   const clientRoot = path.resolve(root, 'client');
   const capRoot = path.resolve(root, 'client', 'capacitor');
   const www = path.join(clientRoot, 'www');
-  const exists = (p) => fs.access(p).then(() => true, () => false);
 
   // 1) Always build web assets
   await spawnStream('npm', 'run', 'action', 'client/src/www/build');
 
-  // 2) Ensure index.html (fallback to index_cordova.html)
-  const idx = path.join(www, 'index.html');
-  const idxCord = path.join(www, 'index_cordova.html');
-  if (!(await exists(idx)) && (await exists(idxCord))) {
-    await fs.copyFile(idxCord, idx);
-  }
+ // 2) Always copy index_cordova.html → index.html
+  await fs.copyFile(
+    path.join(www, 'index_cordova.html'),
+    path.join(www, 'index.html')
+  );
 
   // 3) Generate icons/splashes, then sync (run from Capacitor root, and restore cwd after)
   const prevCwd = process.cwd();
