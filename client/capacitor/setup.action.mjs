@@ -25,7 +25,7 @@ export async function main(..._argv) {
   const www = path.join(clientRoot, 'www');
 
   // 1) Always build web assets
-  await spawnStream('npm', 'run', 'action', 'client/src/www/build');
+  await spawnStream('npm', 'run', 'action', 'client/web/build');
 
  // 2) Always copy index_cordova.html → index.html
   await fs.copyFile(
