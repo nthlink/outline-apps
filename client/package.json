@@ -88,6 +88,7 @@
     "cordova-webintent": "github:cordova-misc/cordova-webintent#v2.0.0",
     "css-loader": "^5.0.1",
     "deepmerge": "^4.3.1",
+    "dotenv": "^17.2.2",
     "electron": "19.1.9",
     "electron-builder": "^23.6.0",
     "eslint": "^8.15.0",
@@ -149,7 +150,7 @@
     ]
   },
   "scripts": {
-    "clean": "rm -rf output node_modules www platforms plugins capacitor/android/app/src/main/res/mipmap-hdpi capacitor/android/app/src/main/res/mipmap-ldpi capacitor/android/app/src/main/res/mipmap-mdpi capacitor/android/app/src/main/res/mipmap-xhdpi capacitor/android/app/src/main/res/mipmap-xxhdpi capacitor/android/app/src/main/res/mipmap-xxxhdpi capacitor/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png",
-    "lint:lit": "lit-analyzer src/www/views"
+    "clean": "rm -rf output node_modules www platforms plugins capacitor/android/app/src/main/res/mipmap-* capacitor/android/app/src/main/res/drawable/splash.png capacitor/android/app/src/main/res/drawable*  capacitor/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png capacitor/ios/App/App/Assets.xcassets/Splash.imageset/Default@*",
+    "lint:lit": "lit-analyzer web/views"
   }
 }

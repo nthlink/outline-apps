@@ -38,7 +38,7 @@ export async function main(...parameters) {
   const {platform, buildMode, verbose, buildNumber, versionName} =
     getBuildParameters(parameters);
 
-  await runAction('client/src/www/build', ...parameters);
+  await runAction('client/web/build', ...parameters);
   await runAction('client/go/build', ...parameters);
 
   const CORDOVA_PROJECT_DIR = path.resolve(getRootDir(), 'client');
@@ -51,7 +51,7 @@ export async function main(...parameters) {
     );
   }
 
-  // this is so cordova doesn't complain about not being in a cordova project
+  // This is so Cordova doesn't complain about not being in a cordova project
   process.env.PWD = path.resolve(getRootDir(), 'client');
 
   switch (platform + buildMode) {

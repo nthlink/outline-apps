@@ -7,10 +7,5 @@
   "keywords": [
     "capacitor",
     "mobile"
-  ],
-  "scripts": {
-    "start": "webpack",
-    "build": "webpack",
-    "preview": "webpack serve"
-  }
+  ]
 }

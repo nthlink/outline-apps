@@ -1,7 +1,7 @@
 # Capacitor Development Instructions
 
 This document describes how to develop and debug for iOS & Android for Capacitor.
-
+Please make sure you are using JDK 17.
 
 
 ## Set up your environment

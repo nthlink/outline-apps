@@ -2,12 +2,12 @@
   "name": "outline-apps",
   "productName": "Outline",
   "scripts": {
-    "addlicense": "go run github.com/go-task/task/v3/cmd/task addlicense",
+    "addlicense": "go tool task addlicense",
     "addlicense:check": "npm run action addlicense -- -check",
     "action:help": "npm run action list",
     "action:list": "npm run action list",
     "action": "node ./infrastructure/build/run_action.mjs",
-    "clean": "npm run clean --workspaces && rm -rf output node_modules third_party/jsign/*.jar && go run github.com/go-task/task/v3/cmd/task clean",
+    "clean": "npm run clean --workspaces && rm -rf output node_modules third_party/jsign/*.jar && go tool task clean",
     "format:all": "echo 'WARNING! Currently works on Linux only. Pass filepaths to fix specific files on MacOS.' && gts fix",
     "lint:gts": "echo 'WARNING! Currently works on Linux only. Pass filepaths to lint specific files on MacOS.' && gts lint",
     "lint:lit": "npm run lint:lit --workspaces --if-present",
@@ -25,8 +25,6 @@
     "client"
   ],
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^7.4.2",
     "@storybook/addon-essentials": "^8.2.6",
     "@storybook/addon-links": "^8.2.6",
     "@storybook/blocks": "^8.2.6",
