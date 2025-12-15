@@ -17,13 +17,12 @@ import os from 'os';
 import path from 'path';
 import url from 'url';
 
-import { downloadHttpsFile } from '@outline/infrastructure/build/download_file.mjs';
-import { getRootDir } from '@outline/infrastructure/build/get_root_dir.mjs';
-import { runAction } from '@outline/infrastructure/build/run_action.mjs';
-import { spawnStream } from '@outline/infrastructure/build/spawn_stream.mjs';
-
-import { getBuildParameters } from '@outline/client/build/get_build_parameters.mjs';
-import { makeReplacements } from '@outline/client/build/make_replacements.mjs';
+import {getBuildParameters} from '@outline/client/build/get_build_parameters.mjs';
+import {makeReplacements} from '@outline/client/build/make_replacements.mjs';
+import {downloadHttpsFile} from '@outline/infrastructure/build/download_file.mjs';
+import {getRootDir} from '@outline/infrastructure/build/get_root_dir.mjs';
+import {runAction} from '@outline/infrastructure/build/run_action.mjs';
+import {spawnStream} from '@outline/infrastructure/build/spawn_stream.mjs';
 
 const CAPACITOR_PLATFORMS = ['capacitor-ios', 'capacitor-android'];
 
@@ -36,7 +35,7 @@ const JAVA_BUNDLETOOL_RESOURCE_URL = `https://github.com/google/bundletool/relea
  * @param {string[]} parameters
  */
 export async function main(...parameters) {
-  const { platform, buildMode, verbose, versionName, buildNumber } =
+  const {platform, buildMode, verbose, versionName, buildNumber} =
     getBuildParameters(parameters);
 
   if (!CAPACITOR_PLATFORMS.includes(platform)) {
@@ -72,9 +71,9 @@ export async function main(...parameters) {
     await spawnStream('npx', 'capacitor-assets', 'generate');
 
     if (nativePlatform === 'ios') {
-      await spawnStream('node', 'scripts/cap-sync-ios.mjs');
+      await spawnStream('node', 'build/cap-sync-ios.mjs');
     } else if (nativePlatform === 'android') {
-      await spawnStream('node', 'scripts/cap-sync-android.mjs');
+      await spawnStream('npx', 'cap', 'sync', 'android');
     }
 
     switch (platform + buildMode) {
@@ -149,7 +148,7 @@ async function androidRelease(ksPassword, ksContents, javaPath, verbose) {
     'bundleRelease',
     `-Pandroid.injected.signing.store.file=${keystorePath}`,
     `-Pandroid.injected.signing.store.password=${ksPassword}`,
-    `-Pandroid.injected.signing.key.alias=privatekey`,
+    '-Pandroid.injected.signing.key.alias=privatekey',
     `-Pandroid.injected.signing.key.password=${ksPassword}`,
     verbose ? '--info' : '--quiet',
     {
@@ -230,7 +229,7 @@ async function iosDebug() {
     '-project',
     path.resolve(iosRoot, 'App.xcodeproj'),
     '-scheme',
-    'Outline',
+    'App',
     '-destination',
     'generic/platform=iOS',
     'clean',
@@ -257,7 +256,7 @@ async function iosRelease() {
     '-project',
     path.resolve(iosRoot, 'App.xcodeproj'),
     '-scheme',
-    'Outline',
+    'App',
     '-destination',
     'generic/platform=iOS',
     'clean',
@@ -273,7 +272,7 @@ async function iosRelease() {
     'Xcode',
     'Archives'
   );
-  console.log(`\nArchive created!`);
+  console.log('\nArchive created!');
   console.log(`Archive location: ${archivesPath}`);
   console.log('To export for TestFlight:');
   console.log('   1. Open Xcode > Window > Organizer (⌘⇧⌥O)');
@@ -324,7 +323,10 @@ async function setIOSVersion(versionName, buildNumber) {
     },
   ]);
 
-  const vpnExtensionPlist = await fs.readFile(vpnExtensionInfoPlistPath, 'utf8');
+  const vpnExtensionPlist = await fs.readFile(
+    vpnExtensionInfoPlistPath,
+    'utf8'
+  );
   let updatedVpnPlist = vpnExtensionPlist;
 
   if (vpnExtensionPlist.includes('<key>CFBundleShortVersionString</key>')) {

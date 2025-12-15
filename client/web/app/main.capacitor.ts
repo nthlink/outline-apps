@@ -16,6 +16,7 @@ import '@babel/polyfill';
 import {Capacitor} from '@capacitor/core';
 import {SplashScreen} from '@capacitor/splash-screen';
 import {StatusBar, Style} from '@capacitor/status-bar';
+import {isCapacitorPlatform} from '@outline/infrastructure/platforms';
 import {setRootPath} from '@polymer/polymer/lib/utils/settings.js';
 import * as Sentry from '@sentry/browser';
 
@@ -34,9 +35,10 @@ import * as interceptors from './url_interceptor';
 import {NoOpVpnInstaller, VpnInstaller} from './vpn_installer';
 import {SentryErrorReporter, Tags} from '../shared/error_reporter';
 
-setRootPath(
-  location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1)
-);
+const isCapacitorRuntime = isCapacitorPlatform();
+if (isCapacitorRuntime) {
+  setRootPath('./');
+}
 
 if (typeof HTMLSlotElement !== 'undefined') {
   const originalAssignedNodes = HTMLSlotElement.prototype.assignedNodes;

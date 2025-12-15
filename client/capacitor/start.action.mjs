@@ -14,22 +14,21 @@
 
 import url from 'url';
 
-import { runAction } from '@outline/infrastructure/build/run_action.mjs';
+import {runAction} from '@outline/infrastructure/build/run_action.mjs';
 import webpack from 'webpack';
 import WebpackServer from 'webpack-dev-server';
 
-import { getBrowserWebpackConfig } from '../web/get_browser_webpack_config.mjs';
+import {getBrowserWebpackConfig} from '../web/get_browser_webpack_config.mjs';
 
 export async function main() {
-    await runAction('client/web/build', 'capacitor-browser');
-    const webpackConfig = getBrowserWebpackConfig('capacitor-browser', 'debug');
-    await new WebpackServer(
-        webpackConfig.devServer,
-        webpack(webpackConfig)
-    ).start();
+  await runAction('client/web/build', 'capacitor-browser');
+  const webpackConfig = getBrowserWebpackConfig('capacitor-browser', 'debug');
+  await new WebpackServer(
+    webpackConfig.devServer,
+    webpack(webpackConfig)
+  ).start();
 }
 
 if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
-    await main(...process.argv.slice(2));
+  await main(...process.argv.slice(2));
 }
-

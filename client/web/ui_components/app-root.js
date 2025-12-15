@@ -66,6 +66,7 @@ import '../views/root_view/root_navigation';
 import '../views/appearance_view';
 // eslint-disable-next-line n/no-missing-import
 import * as i18n from '@outline/infrastructure/i18n';
+import {isCapacitorPlatform} from '@outline/infrastructure/platforms';
 import {AppLocalizeBehavior} from '@polymer/app-localize-behavior/app-localize-behavior.js';
 import {PaperMenuButton} from '@polymer/paper-menu-button/paper-menu-button.js';
 import {mixinBehaviors} from '@polymer/polymer/lib/legacy/class.js';
@@ -607,8 +608,9 @@ export class AppRoot extends mixinBehaviors(
 
   ready() {
     super.ready();
-    this.rootPath = './';
-
+    if (isCapacitorPlatform()) {
+      this.rootPath = './';
+    }
     this.setLanguage(this.language);
     this.addEventListener('ShowNavigation', () => {
       this.openDrawer();

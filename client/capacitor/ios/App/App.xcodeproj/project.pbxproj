@@ -261,7 +261,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
-				6318D1DE2EB1235E006D5B40 /* XCLocalSwiftPackageReference "../../plugins/apple/OutlineAppleLib" */,
+				6318D1DE2EB1235E006D5B40 /* XCLocalSwiftPackageReference "../../../src/cordova/apple/OutlineAppleLib" */,
 				18E12A292EC4C940001BF6C8 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
@@ -636,9 +636,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		6318D1DE2EB1235E006D5B40 /* XCLocalSwiftPackageReference "../../plugins/apple/OutlineAppleLib" */ = {
+		6318D1DE2EB1235E006D5B40 /* XCLocalSwiftPackageReference "../../../src/cordova/apple/OutlineAppleLib" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../plugins/apple/OutlineAppleLib;
+			relativePath = ../../../src/cordova/apple/OutlineAppleLib;
 		};
 		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
 			isa = XCLocalSwiftPackageReference;
