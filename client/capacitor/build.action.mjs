@@ -26,7 +26,7 @@ import * as dotenv from 'dotenv';
 import { getBuildParameters } from '@outline/client/build/get_build_parameters.mjs';
 import { makeReplacements } from '@outline/client/build/make_replacements.mjs';
 
-const CAPACITOR_PLATFORMS = ['capacitor-ios', 'capacitor-android'];
+const CAPACITOR_PLATFORMS = ['capacitor-android'];
 
 const JAVA_BUNDLETOOL_VERSION = '1.8.2';
 const JAVA_BUNDLETOOL_RESOURCE_URL = `https://github.com/google/bundletool/releases/download/1.8.2/bundletool-all-${JAVA_BUNDLETOOL_VERSION}.jar`;
@@ -54,7 +54,6 @@ export async function main(...parameters) {
 
   // Map Capacitor platforms to their native equivalents for Go build and Capacitor CLI
   const platformMap = {
-    'capacitor-ios': 'ios',
     'capacitor-android': 'android',
   };
 
@@ -73,9 +72,7 @@ export async function main(...parameters) {
 
     await spawnStream('npx', 'capacitor-assets', 'generate');
 
-    if (nativePlatform === 'ios') {
-      await spawnStream('node', 'build/cap-sync-ios.mjs');
-    } else if (nativePlatform === 'android') {
+    if (nativePlatform === 'android') {
       await spawnStream('node', 'build/cap-sync-android.mjs');
     }
 
@@ -109,13 +106,6 @@ export async function main(...parameters) {
           process.env.JAVA_HOME,
           verbose
         );
-        break;
-      case 'capacitor-ios' + 'debug':
-        buildResult = await iosDebug();
-        break;
-      case 'capacitor-ios' + 'release':
-        await setIOSVersion(versionName, buildNumber);
-        buildResult = await iosRelease();
         break;
     }
 
@@ -226,172 +216,6 @@ async function setAndroidVersion(versionName, buildNumber) {
 
   console.log(
     `Updated Android version: versionCode=${buildNumber}, versionName="${versionName}"`
-  );
-}
-
-async function iosDebug() {
-  if (os.platform() !== 'darwin') {
-    throw new Error(
-      'Building an iOS binary requires xcodebuild and can only be done on macOS'
-    );
-  }
-
-  console.warn(
-    'WARNING: building "ios" in [DEBUG] mode. Do not publish this build!!'
-  );
-
-  const root = getRootDir();
-  const iosRoot = path.resolve(root, 'client', 'capacitor', 'ios', 'App');
-
-  return spawnStream(
-    'xcodebuild',
-    '-project',
-    path.resolve(iosRoot, 'App.xcodeproj'),
-    '-scheme',
-    'Outline',
-    '-destination',
-    'generic/platform=iOS',
-    'clean',
-    'build',
-    '-configuration',
-    'Debug',
-    'CODE_SIGN_IDENTITY=""',
-    'CODE_SIGNING_ALLOWED="NO"'
-  );
-}
-
-async function iosRelease() {
-  if (os.platform() !== 'darwin') {
-    throw new Error(
-      'Building an iOS binary requires xcodebuild and can only be done on macOS'
-    );
-  }
-
-  const root = getRootDir();
-  const iosRoot = path.resolve(root, 'client', 'capacitor', 'ios', 'App');
-
-  await spawnStream(
-    'xcodebuild',
-    '-project',
-    path.resolve(iosRoot, 'App.xcodeproj'),
-    '-scheme',
-    'Outline',
-    '-destination',
-    'generic/platform=iOS',
-    'clean',
-    'archive',
-    '-configuration',
-    'Release'
-  );
-
-  const archivesPath = path.resolve(
-    os.homedir(),
-    'Library',
-    'Developer',
-    'Xcode',
-    'Archives'
-  );
-  console.log(`\nArchive created!`);
-  console.log(`Archive location: ${archivesPath}`);
-  console.log('To export for TestFlight:');
-  console.log('   1. Open Xcode > Window > Organizer (⌘⇧⌥O)');
-  console.log('   2. Select your archive');
-  console.log('   3. Click "Distribute App" > "App Store Connect"');
-}
-
-async function setIOSVersion(versionName, buildNumber) {
-  const root = getRootDir();
-  const appInfoPlistPath = path.resolve(
-    root,
-    'client',
-    'capacitor',
-    'ios',
-    'App',
-    'App',
-    'Info.plist'
-  );
-  const vpnExtensionInfoPlistPath = path.resolve(
-    root,
-    'client',
-    'capacitor',
-    'ios',
-    'App',
-    'VpnExtension',
-    'Info.plist'
-  );
-  const projectPbxprojPath = path.resolve(
-    root,
-    'client',
-    'capacitor',
-    'ios',
-    'App',
-    'App.xcodeproj',
-    'project.pbxproj'
-  );
-
-  await makeReplacements([
-    {
-      files: appInfoPlistPath,
-      from: /<key>CFBundleShortVersionString<\/key>\s*<string>.*<\/string>/g,
-      to: `<key>CFBundleShortVersionString</key>\n\t<string>${versionName}</string>`,
-    },
-    {
-      files: appInfoPlistPath,
-      from: /<key>CFBundleVersion<\/key>\s*<string>.*<\/string>/g,
-      to: `<key>CFBundleVersion</key>\n\t<string>${buildNumber}</string>`,
-    },
-  ]);
-
-  const vpnExtensionPlist = await fs.readFile(vpnExtensionInfoPlistPath, 'utf8');
-  let updatedVpnPlist = vpnExtensionPlist;
-
-  if (vpnExtensionPlist.includes('<key>CFBundleShortVersionString</key>')) {
-    updatedVpnPlist = updatedVpnPlist.replace(
-      /<key>CFBundleShortVersionString<\/key>\s*<string>.*<\/string>/g,
-      `<key>CFBundleShortVersionString</key>\n\t<string>${versionName}</string>`
-    );
-  } else {
-    updatedVpnPlist = updatedVpnPlist.replace(
-      /(<dict>)/,
-      `$1\n\t<key>CFBundleShortVersionString</key>\n\t<string>${versionName}</string>`
-    );
-  }
-
-  if (vpnExtensionPlist.includes('<key>CFBundleVersion</key>')) {
-    updatedVpnPlist = updatedVpnPlist.replace(
-      /<key>CFBundleVersion<\/key>\s*<string>.*<\/string>/g,
-      `<key>CFBundleVersion</key>\n\t<string>${buildNumber}</string>`
-    );
-  } else {
-    if (updatedVpnPlist.includes('<key>CFBundleShortVersionString</key>')) {
-      updatedVpnPlist = updatedVpnPlist.replace(
-        /(<key>CFBundleShortVersionString<\/key>\s*<string>.*<\/string>)/,
-        `$1\n\t<key>CFBundleVersion</key>\n\t<string>${buildNumber}</string>`
-      );
-    } else {
-      updatedVpnPlist = updatedVpnPlist.replace(
-        /(<dict>)/,
-        `$1\n\t<key>CFBundleVersion</key>\n\t<string>${buildNumber}</string>`
-      );
-    }
-  }
-
-  await fs.writeFile(vpnExtensionInfoPlistPath, updatedVpnPlist, 'utf8');
-  await makeReplacements([
-    {
-      files: projectPbxprojPath,
-      from: /CURRENT_PROJECT_VERSION = \d+;/g,
-      to: `CURRENT_PROJECT_VERSION = ${buildNumber};`,
-    },
-    {
-      files: projectPbxprojPath,
-      from: /MARKETING_VERSION = [\d.]+;/g,
-      to: `MARKETING_VERSION = ${versionName};`,
-    },
-  ]);
-
-  console.log(
-    `Updated iOS versions: App and VpnExtension - versionName="${versionName}", buildNumber="${buildNumber}"`
   );
 }
 
