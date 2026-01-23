@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 import {StartRequestJson, TunnelStatus, VpnApi} from './vpn';
 import * as errors from '../../model/errors';
 import {pluginExec, pluginRegisterListener} from '../plugin.capacitor';
-
 
 type VpnStatusPayload = {id: string; status: TunnelStatus};
 
