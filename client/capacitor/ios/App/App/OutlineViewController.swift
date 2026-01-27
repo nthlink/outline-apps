@@ -16,6 +16,8 @@ import Capacitor
 import CapacitorPluginOutline
 
 class OutlineViewController: CAPBridgeViewController {
+    private var webViewRetryCount = 0
+    private let maxWebViewRetries = 10
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,6 +53,10 @@ class OutlineViewController: CAPBridgeViewController {
      */
     func ensureWebViewVisible() {
         guard let webView = webView else {
+            guard webViewRetryCount < maxWebViewRetries else {
+                return
+            }
+            webViewRetryCount += 1
             // WebView not ready yet, retry after a short delay
             // This handles timing issues where the WebView might not be initialized immediately
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
@@ -58,6 +64,8 @@ class OutlineViewController: CAPBridgeViewController {
             }
             return
         }
+
+        webViewRetryCount = 0
         
         // Ensure WebView is visible and has transparent background
         webView.isHidden = false

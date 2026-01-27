@@ -77,6 +77,7 @@ function resizeSplashImages() {
                         }
                     }
                 } catch (error) {
+                    throw error;
                 }
             }
         }
@@ -85,8 +86,7 @@ function resizeSplashImages() {
         }
         return resized;
     } catch (error) {
-        console.warn('  Could not resize splash images:', error.message);
-        return false;
+        throw new Error(`Could not resize splash images: ${error.message}`);
     }
 }
 
