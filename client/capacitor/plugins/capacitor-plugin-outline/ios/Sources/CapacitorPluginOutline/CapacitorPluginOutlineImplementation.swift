@@ -48,7 +48,7 @@ import AppKit
         #endif
     }()
     
-    private static let appGroupIdentifier = "group.org.getoutline.client"
+    private static let appGroupIdentifier = "group.com.nthlink.outline"
     private static let maxBreadcrumbs: UInt = 100
     
     private var sentryLogger: OutlineSentryLogger?

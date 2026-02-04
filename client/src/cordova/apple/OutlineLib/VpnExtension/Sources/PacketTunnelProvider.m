@@ -43,7 +43,7 @@ NSString *const kDefaultPathKey = @"defaultPath";
 
 - (id)init {
   self = [super init];
-  NSString *appGroup = @"group.org.getoutline.client";
+  NSString *appGroup = @"group.com.nthlink.outline";
   NSURL *containerUrl = [[NSFileManager defaultManager]
                          containerURLForSecurityApplicationGroupIdentifier:appGroup];
   NSString *logsDirectory = [[containerUrl path] stringByAppendingPathComponent:@"Logs"];

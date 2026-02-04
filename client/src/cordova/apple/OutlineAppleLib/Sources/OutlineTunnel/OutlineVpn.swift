@@ -16,11 +16,23 @@ import CocoaLumberjackSwift
 import NetworkExtension
 import OutlineError
 
+// Key in the app's Info.plist to override the VPN extension bundle ID.
+// Use this when the extension target uses a different bundle ID (e.g. "PacketTunnel").
+// If unset, we use Bundle.main.bundleIdentifier! + ".VpnExtension" (Cordova default).
+private let kInfoPlistVpnExtensionBundleId = "OutlineVpnExtensionBundleId"
+
 // Manages the system's VPN tunnel through the VpnExtension process.
 @objcMembers
 public class OutlineVpn: NSObject {
   public static let shared = OutlineVpn()
-  private static let kVpnExtensionBundleId = "\(Bundle.main.bundleIdentifier!).VpnExtension"
+  /// VPN extension bundle ID. Reads OutlineVpnExtensionBundleId from Info.plist if set (Capacitor);
+  /// otherwise app bundle ID + ".VpnExtension" (Cordova).
+  private static var kVpnExtensionBundleId: String {
+    if let override = Bundle.main.object(forInfoDictionaryKey: kInfoPlistVpnExtensionBundleId) as? String, !override.isEmpty {
+      return override
+    }
+    return "\(Bundle.main.bundleIdentifier!).VpnExtension"
+  }
 
   public typealias VpnStatusObserver = (NEVPNStatus, String) -> Void
 
@@ -113,26 +125,32 @@ public class OutlineVpn: NSObject {
     case .connected:
       break
     case .disconnected, .invalid:
-      guard let err = await fetchExtensionLastDisconnectError(session) else {
-        throw OutlineError.internalError(message: "unexpected nil disconnect error")
+      var err = await fetchExtensionLastDisconnectError(session)
+      if err == nil {
+        err = loadLastDisconnectErrorFromAppGroup()
       }
-      throw err
+      guard let disconnectError = err else {
+        throw OutlineError.internalError(
+          message: "Connection failed. The server may be unreachable or the connection was interrupted. Try again or check your server and network."
+        )
+      }
+      throw disconnectError
     default:
       // This shouldn't happen.
       throw OutlineError.internalError(message: "unexpected connection status")
     }
 
-    // Set an on-demand rule to connect to any available network to implement auto-connect on boot
-    do { try await manager.loadFromPreferences() }
-    catch {
-      DDLogWarn("OutlineVpn.start: Failed to reload preferences: \(error.localizedDescription)")
-    }
-    let connectRule = NEOnDemandRuleConnect()
-    connectRule.interfaceTypeMatch = .any
-    manager.onDemandRules = [connectRule]
-    do { try await manager.saveToPreferences() }
-    catch {
-      DDLogWarn("OutlineVpn.start: Failed to save on-demand preference change: \(error.localizedDescription)")
+    // Set an on-demand rule to connect to any available network to implement auto-connect on boot.
+    // Do this in one place only to avoid racing with vpnStatusChanged and hitting "configuration is stale".
+    do {
+      try await manager.loadFromPreferences()
+      let connectRule = NEOnDemandRuleConnect()
+      connectRule.interfaceTypeMatch = .any
+      manager.onDemandRules = [connectRule]
+      manager.isOnDemandEnabled = true
+      try await manager.saveToPreferences()
+    } catch {
+      DDLogWarn("OutlineVpn.start: Failed to save on-demand preference: \(error.localizedDescription)")
     }
   }
 
@@ -223,11 +241,7 @@ public class OutlineVpn: NSObject {
       return
     }
     DDLogDebug("OutlineVpn received status change for \(tunnelId): \(String(describing: session.status))")
-    if isActiveSession(session) {
-      Task {
-        await setConnectVpnOnDemand(manager, true)
-      }
-    }
+    // On-demand is enabled in start() after connection; do not update here to avoid "configuration is stale" race.
     self.vpnStatusObserver?(session.status, tunnelId)
   }
 }
@@ -284,13 +298,25 @@ private func stopSession(_ manager:NETunnelProviderManager) async {
 }
 
 private func setConnectVpnOnDemand(_ manager: NETunnelProviderManager?, _ enabled: Bool) async {
-  do {
+  func doSet() async throws {
     try await manager?.loadFromPreferences()
     manager?.isOnDemandEnabled = enabled
     try await manager?.saveToPreferences()
+  }
+  do {
+    try await doSet()
   } catch {
-    DDLogError("Failed to set VPN on demand to \(enabled): \(error)")
-    return
+    let nsErr = error as NSError
+    if nsErr.domain == "NEVPNErrorDomain", nsErr.code == 4 {
+      DDLogWarn("VPN configuration was stale, retrying once")
+      do {
+        try await doSet()
+      } catch {
+        DDLogError("Failed to set VPN on demand to \(enabled): \(error)")
+      }
+    } else {
+      DDLogError("Failed to set VPN on demand to \(enabled): \(error)")
+    }
   }
 }
 
@@ -310,6 +336,28 @@ private enum ExtensionIPC {
 private struct LastErrorIPCData: Decodable {
   let errorCode: String
   let errorJson: String
+}
+
+// App Group and key must match PacketTunnelProvider.swift so the app can read the error
+// when the extension is already unloaded (e.g. after a failed connection).
+private let kLastDisconnectErrorAppGroup = "group.com.nthlink.outline"
+private let kLastDisconnectErrorPersistenceKey = "lastDisconnectError"
+
+/// Reads the last disconnect error from App Group UserDefaults (written by the VPN extension).
+/// Returns nil if no error was persisted or decoding fails.
+private func loadLastDisconnectErrorFromAppGroup() -> Error? {
+  guard let defaults = UserDefaults(suiteName: kLastDisconnectErrorAppGroup),
+        let data = defaults.data(forKey: kLastDisconnectErrorPersistenceKey) else {
+    return nil
+  }
+  do {
+    let lastError = try PropertyListDecoder().decode(LastErrorIPCData.self, from: data)
+    DDLogDebug("Loaded last disconnect error from App Group: \(lastError.errorCode)")
+    return OutlineError.detailedJsonError(code: lastError.errorCode, json: lastError.errorJson)
+  } catch {
+    DDLogWarn("Failed to decode last disconnect error from App Group: \(error)")
+    return nil
+  }
 }
 
 // Fetches the most recent error that caused the VPN extension to disconnect.
