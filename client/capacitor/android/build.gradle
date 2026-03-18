@@ -44,19 +44,19 @@ allprojects {
     }
 
     tasks.withType(JavaCompile).configureEach {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     afterEvaluate { p ->
         if (p.extensions.findByName("android") != null) {
             p.extensions.getByName("android").compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
+                sourceCompatibility = JavaVersion.VERSION_21
+                targetCompatibility = JavaVersion.VERSION_21
             }
             def kotlinExt = p.extensions.findByName("kotlinOptions")
             if (kotlinExt != null) {
-                kotlinExt.jvmTarget = "17"
+                kotlinExt.jvmTarget = "21"
             }
         }
     }

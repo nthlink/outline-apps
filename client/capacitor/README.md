@@ -4,7 +4,7 @@ This document describes how to develop and debug for iOS & Android for Capacitor
 
 ## Requirements for all builds
 
-All builds require [Node](https://nodejs.org/) 22 (lts/hydrogen), JDK 17 and [Go](https://golang.org/) 1.25 installed in addition to other per-platform requirements.
+All builds require [Node](https://nodejs.org/) 22 LTS, JDK 21 and [Go](https://golang.org/) 1.25 installed in addition to other per-platform requirements.
 
 > 💡 NOTE: if you have `nvm` installed, run `nvm use` to switch to the correct node version!
 
