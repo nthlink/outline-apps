@@ -72,12 +72,7 @@ export async function main(...parameters) {
     process.chdir(capRoot);
 
     await spawnStream('npx', 'capacitor-assets', 'generate');
-
-    if (nativePlatform === 'ios') {
-      await spawnStream('node', 'build/cap-sync-ios.mjs');
-    } else if (nativePlatform === 'android') {
-      await spawnStream('node', 'build/cap-sync-android.mjs');
-    }
+    await spawnStream('npx', 'cap', 'copy');
 
     let buildResult;
     switch (platform + buildMode) {
