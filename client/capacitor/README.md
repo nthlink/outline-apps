@@ -59,7 +59,7 @@ You can either set environment variables inline or use a `.env` file in the proj
 
 ```sh
 SENTRY_DSN=<your sentry dsn> \
-JAVA_HOME=<path to java 17> \
+JAVA_HOME=<path to java 21> \
 ANDROID_KEY_STORE_PASSWORD=<keystore password> \
 ANDROID_KEY_STORE_CONTENTS=<base64 encoded keystore> \
 npm run action client/capacitor/build capacitor-android -- --buildMode=release --versionName=<your version name>
@@ -71,7 +71,7 @@ Create a `.env` file in the project root with:
 
 ```env
 SENTRY_DSN=<your sentry dsn>
-JAVA_HOME=<path to java 17>
+JAVA_HOME=<path to java 21>
 ANDROID_KEY_STORE_PASSWORD=<keystore password>
 ANDROID_KEY_STORE_CONTENTS=<base64 encoded keystore>
 ```
@@ -86,7 +86,7 @@ npm run action client/capacitor/build capacitor-android -- --buildMode=release -
 
 - `versionName`: A valid version string (e.g., "1.0.0") - passed as CLI argument
 - `SENTRY_DSN`: Sentry DSN for error reporting - set as environment variable or in `.env` file
-- `JAVA_HOME`: Path to JDK 17 installation - set as environment variable or in `.env` file
+- `JAVA_HOME`: Path to JDK 21 installation - set as environment variable or in `.env` file
 - `ANDROID_KEY_STORE_PASSWORD`: Password for the signing keystore - set as environment variable or in `.env` file
 - `ANDROID_KEY_STORE_CONTENTS`: Base64-encoded keystore file contents - set as environment variable or in `.env` file
 
