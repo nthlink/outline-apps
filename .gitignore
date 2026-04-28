@@ -25,3 +25,4 @@ client/capacitor/ios/App/App/Assets.xcassets/Splash.imageset/Default@*.png
 client/capacitor/android/app/src/main/res/drawable/
 # Capacitor plugin build outputs
 client/capacitor/plugins/capacitor-plugin-outline/android/build/
+config.bat
