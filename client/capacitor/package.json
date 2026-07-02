@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "clean": "rm -rf node_modules www",
-    "start": "node ./start.action.mjs",
+    "start": "node api.js && node ./start.action.mjs",
     "build": "node ./build.action.mjs"
   },
   "devDependencies": {
