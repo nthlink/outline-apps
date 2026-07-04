@@ -20,6 +20,7 @@
 //
 
 import UIKit
+import Capacitor
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -34,10 +35,34 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = rootViewController
         self.window = window
         window.makeKeyAndVisible()
+
+        // A URL that launched the app (cold start) is delivered here via the
+        // connection options rather than through AppDelegate, so forward it too.
+        if let urlContext = connectionOptions.urlContexts.first {
+            forwardOpen(urlContext.url, options: urlContext.options)
+        }
+    }
+
+    // MARK: - Deep links
+
+    // In a scene-based app, URLs opened while the app is running are delivered
+    // here instead of AppDelegate.application(_:open:options:). Forward them to
+    // the Capacitor bridge so ss:// access-key links reach the JavaScript layer.
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let urlContext = URLContexts.first else { return }
+        forwardOpen(urlContext.url, options: urlContext.options)
+    }
+
+    private func forwardOpen(_ url: URL, options: UIScene.OpenURLOptions) {
+        var appOptions: [UIApplication.OpenURLOptionsKey: Any] = [:]
+        appOptions[.sourceApplication] = options.sourceApplication
+        appOptions[.openInPlace] = options.openInPlace
+        appOptions[.annotation] = options.annotation
+        ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: appOptions)
     }
 
     // Implement other scene lifecycle methods as needed
-    
+
     func sceneWillEnterForeground(_ scene: UIScene) {
         // Ensure WebView is visible when app returns from background
         // viewWillAppear will also be called, but this ensures it happens immediately
