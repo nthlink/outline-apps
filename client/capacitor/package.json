@@ -13,8 +13,8 @@
     "assets:generate": "capacitor-assets generate --android && capacitor-assets generate --ios",
     "clean": "rm -rf node_modules www",
     "start": "node ./start.action.mjs",
-    "build": "node ./build.action.mjs",
-    "capacitor:sync:before": "npm run build && cd ../.. && go tool task -v client:tun2socks:$CAPACITOR_PLATFORM_NAME && ([ \"$CAPACITOR_PLATFORM_NAME\" != \"android\" ] || go tool task -v client:android:configure)"
+    "build:web": "node ./web_build.action.mjs",
+    "capacitor:sync:before": "cd ../.. && go tool task -v client:tun2socks:$CAPACITOR_PLATFORM_NAME && ([ \"$CAPACITOR_PLATFORM_NAME\" != \"android\" ] || go tool task -v client:android:configure)"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.1",

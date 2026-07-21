@@ -30,15 +30,15 @@ npm run action client/capacitor/start
 
 ## Build (browser)
 
-The build action accepts **`browser`** (see `build.action.mjs`).
+The build action accepts **`browser`** (see `web_build.action.mjs`).
 
 **Debug (default):**
 
 ```sh
-npm run action client/capacitor/build
+npm run action client/capacitor/web_build
 ```
 
-**Note:** The Capacitor browser build is **debug-only**. Passing `--buildMode=release` is rejected by `build.action.mjs`.
+**Note:** The Capacitor browser build is **debug-only**. Passing `--buildMode=release` is rejected by `web_build.action.mjs`.
 
 ### Output
 

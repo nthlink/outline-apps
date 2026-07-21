@@ -16,8 +16,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import url from 'url';
 
-import {runAction} from '@outline/infrastructure/build/run_action.mjs';
-
 import webpackConfig from './webpack.config.js';
 import {writeEnvironmentJson} from './write_environment.mjs';
 import {getBuildParameters} from '../build/get_build_parameters.mjs';
@@ -55,10 +53,6 @@ export async function main(...parameters) {
 
   await writeEnvironmentJson(capacitorDir, versionName, buildNumber);
   await runWebpack({...webpackConfig, mode: 'development'});
-
-  if (platform === 'android') {
-    await runAction('client/go/build', 'android', ...parameters.slice(1));
-  }
 }
 
 if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
