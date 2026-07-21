@@ -48,6 +48,38 @@ Artifacts land in **`client/capacitor/www/`**, including for example:
 - `environment.json` (version and build numbers)
 - Copied assets: `messages/`, `assets/`, etc. (see `webpack.config.js`)
 
+## App icons and splash screens
+
+**`client/capacitor/assets/` is the single source of truth** for launcher icons and splash screens on **Android and iOS**. Everything under `android/app/src/main/res/mipmap-*`, the `drawable-*` splash variants, and the iOS asset catalog (`ios/App/App/Assets.xcassets`) is **generated** from it — do not edit those files by hand.
+
+The source files follow the [`@capacitor/assets`](https://github.com/ionic-team/capacitor-assets) input convention:
+
+| File | Purpose |
+| --- | --- |
+| `assets/icon.png` | Base app icon (1024×1024) |
+| `assets/icon-only.png` | Icon without background (used where the platform composes its own shape) |
+| `assets/icon-foreground.png` | Android adaptive icon foreground layer |
+| `assets/icon-background.png` | Android adaptive icon background layer |
+| `assets/splash.png` | Splash screen (light mode, 2732×2732) |
+| `assets/splash-dark.png` | Splash screen (dark mode) |
+
+To regenerate the platform resources after changing any source image:
+
+```sh
+cd client/capacitor
+npm run assets:generate
+```
+
+The script runs `capacitor-assets generate` once per platform rather than a single `--android --ios` invocation: combining the flags changes the generated Android PNGs (the platform runs are not isolated inside the tool), which would break reproducibility against the committed `res/` files.
+
+then re-add license headers to the regenerated adaptive-icon XMLs (from the repo root):
+
+```sh
+go tool task addlicense
+```
+
+The web/browser build does not use this directory — its favicon and images come from `client/web/` (see `webpack.config.js`). If a PWA target is ever added, `@capacitor/assets` can generate its icons too (`--pwa`).
+
 ## Android (device or emulator)
 
 Use this flow when you need the real Outline Android plugin (VPN, native method channel, and so on). All **`npx cap`** commands below are run from **`client/capacitor`** (the directory that contains `capacitor.config.json` and `android/`).

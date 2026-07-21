@@ -10,6 +10,7 @@
     "mobile"
   ],
   "scripts": {
+    "assets:generate": "capacitor-assets generate --android && capacitor-assets generate --ios",
     "clean": "rm -rf node_modules www",
     "start": "node ./start.action.mjs",
     "build": "node ./build.action.mjs",
