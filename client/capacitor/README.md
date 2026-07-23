@@ -88,7 +88,7 @@ Use this flow when you need the real Outline Android plugin (VPN, native method 
 
 - [Android Studio](https://developer.android.com/studio) with a recent Android SDK (match the versions in `client/capacitor/android/variables.gradle` and root Gradle files).
 - A **physical device** with USB debugging or an **AVD** emulator.
-- **Go** on your `PATH` (`npm run capacitor:sync:before` runs **`npm run build`** to populate `www/`, then `go tool task` for tun2socks and Android configure; see `package.json` in this directory).
+- **Go** on your `PATH` (`npm run capacitor:sync:before` runs `go tool task` for tun2socks and Android configure; see `package.json` in this directory).
 
 ### Steps to build and start the app
 
@@ -98,7 +98,7 @@ Use this flow when you need the real Outline Android plugin (VPN, native method 
    cd client/capacitor
    ```
 
-2. **Sync the Android project** (runs `capacitor:sync:before`: webpack `www/` build, Go tun2socks, Android configure; then copies web assets into the native app and refreshes plugins):
+2. **Sync the Android project** (runs `capacitor:sync:before`: Go tun2socks, Android configure; then copies web assets into the native app and refreshes plugins):
 
    ```sh
    npx cap sync android
@@ -119,11 +119,11 @@ Use this flow when you need the real Outline Android plugin (VPN, native method 
   npx cap open android
   ```
 
-- **Web-only iteration** (faster when you did not change native code or `AndroidManifest.xml`): copy assets without refreshing native Gradle dependencies. Build `www/` first, then copy (sync is heavier but already runs `npm run build` in `capacitor:sync:before`):
+- **Web-only iteration** (faster when you did not change native code or `AndroidManifest.xml`): copy assets without refreshing native Gradle dependencies. Build `www/` first, then copy :
 
   ```sh
   cd client/capacitor
-  npm run build
+  npm run build:web
   npx cap copy android
   ```
 
