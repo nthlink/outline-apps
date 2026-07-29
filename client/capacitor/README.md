@@ -90,6 +90,15 @@ Use this flow when you need the real Outline iOS plugin (VPN, native method chan
 - [CocoaPods](https://cocoapods.org/) installed (`sudo gem install cocoapods`), used to manage native iOS dependencies.
 - A **physical device** with a valid provisioning profile/signing setup, or an **iOS Simulator** runtime installed via Xcode.
 - **Go** on your `PATH` (`npm run capacitor:sync:before` runs `go tool task` for tun2socks and iOS configure; see `package.json` in this directory).
+## Android (device or emulator)
+
+Use this flow when you need the real Outline Android plugin (VPN, native method channel, and so on). All **`npx cap`** commands below are run from **`client/capacitor`** (the directory that contains `capacitor.config.json` and `android/`).
+
+### Requirements (Android)
+
+- [Android Studio](https://developer.android.com/studio) with a recent Android SDK (match the versions in `client/capacitor/android/variables.gradle` and root Gradle files).
+- A **physical device** with USB debugging or an **AVD** emulator.
+- **Go** on your `PATH` (`npm run capacitor:sync:before` runs `go tool task` for tun2socks and Android configure; see `package.json` in this directory).
 
 ### Steps to build and start the app
 
@@ -105,6 +114,17 @@ Use this flow when you need the real Outline iOS plugin (VPN, native method chan
 3. **Install and launch** on the default device or running simulator:
    ```sh
    npx cap run ios
+
+2. **Sync the Android project** (runs `capacitor:sync:before`: Go tun2socks, Android configure; then copies web assets into the native app and refreshes plugins):
+
+   ```sh
+   npx cap sync android
+   ```
+
+3. **Install and launch** on the default device or running emulator:
+
+   ```sh
+   npx cap run android
    ```
 
 ### Optional Capacitor CLI commands
@@ -125,4 +145,26 @@ Use this flow when you need the real Outline iOS plugin (VPN, native method chan
   ```sh
   cd client/capacitor
   npx cap doctor ios
+- **Open in Android Studio** (inspect Gradle, run/debug from the IDE):
+
+  ```sh
+  cd client/capacitor
+  npx cap open android
+  ```
+
+- **Web-only iteration** (faster when you did not change native code or `AndroidManifest.xml`): copy assets without refreshing native Gradle dependencies. Build `www/` first, then copy :
+
+  ```sh
+  cd client/capacitor
+  npm run build:web
+  npx cap copy android
+  ```
+
+  Use **`npx cap sync android`** again whenever you change native plugins, Gradle, or manifest entries.
+
+- **Sanity check** the Android toolchain from Capacitor’s point of view:
+
+  ```sh
+  cd client/capacitor
+  npx cap doctor android
   ```
