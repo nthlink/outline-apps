@@ -14,6 +14,7 @@
 
 import Capacitor
 import CapacitorPluginOutline
+import WebKit
 
 class OutlineViewController: CAPBridgeViewController {
     private var webViewRetryCount = 0
@@ -73,16 +74,19 @@ class OutlineViewController: CAPBridgeViewController {
         webView.scrollView.backgroundColor = .clear
         
         // Check if WebView needs to be reloaded (hasn't loaded or loaded blank page)
-        let needsReload = webView.url == nil || 
-                         webView.url?.absoluteString.isEmpty == true ||
-                         webView.url?.absoluteString == "about:blank"
-        
-        if needsReload {
+        if webViewNeedsReload(webView) {
             // Wait a bit for Capacitor bridge to be fully ready before loading
             // This handles cases where Capacitor hasn't finished initializing the WebView yet
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self = self, let webView = self.webView, let bridge = self.bridge else { return }
-                
+
+                // Re-check before forcing a load: on cold start Capacitor's initial
+                // navigation is still in flight when the first check runs, so the URL is
+                // nil then but has become capacitor://localhost/index.html by now. Reloading
+                // unconditionally would cancel that navigation and re-run the JS bootstrap,
+                // double-initialising the app (duplicate VPN listeners, double load() hooks).
+                guard self.webViewNeedsReload(webView) else { return }
+
                 // Load the start URL from Capacitor config
                 // This ensures the WebView loads even if Capacitor's automatic loading failed
                 let config = bridge.config
@@ -99,6 +103,17 @@ class OutlineViewController: CAPBridgeViewController {
         webView.layoutIfNeeded()
         view.setNeedsLayout()
         view.layoutIfNeeded()
+    }
+
+    /**
+     * Returns true when the WebView has no real content loaded (nil, empty, or about:blank URL)
+     * and therefore needs to be (re)loaded. Once Capacitor has navigated to its real URL this
+     * returns false, which lets the deferred reload skip itself and avoid re-running the JS bootstrap.
+     */
+    private func webViewNeedsReload(_ webView: WKWebView) -> Bool {
+        return webView.url == nil ||
+               webView.url?.absoluteString.isEmpty == true ||
+               webView.url?.absoluteString == "about:blank"
     }
         
     /**
