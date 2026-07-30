@@ -289,7 +289,7 @@ import Tun2socks
         // With UIWebView, the app used the file:// scheme with no hostname and any port.
         let kUIWebViewLocalStorageFilename = "file__0.localstorage"
         // With WKWebView, the app uses the app:// scheme with localhost as a hostname and any port.
-        let kWKWebViewLocalStorageFilename = "app_localhost_0.localstorage"
+        let kWKWebViewLocalStorageFilename = "capacitor_localhost_0.localstorage"
         
         let fileManager = FileManager.default
         let appLibraryDir = fileManager.urls(
