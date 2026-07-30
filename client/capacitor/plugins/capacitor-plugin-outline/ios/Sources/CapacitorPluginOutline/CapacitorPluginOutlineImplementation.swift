@@ -268,6 +268,7 @@ import Tun2socks
             ).path
             goConfig.dataDir = dataPath
         } catch {
+            DDLogError("Failed to configure Go backend data directory: \(error)")
         }
     }
     
