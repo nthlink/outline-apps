@@ -4,6 +4,7 @@
     "webDir": "www",
     "bundledWebRuntime": false,
     "server": {
+      "iosScheme": "app",
       "allowNavigation": [
           "*"
       ]
