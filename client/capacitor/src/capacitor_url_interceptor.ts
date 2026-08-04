@@ -13,11 +13,17 @@
 // limitations under the License.
 
 import {App} from '@capacitor/app';
-import type {PluginListenerHandle} from '@capacitor/core';
+import {Capacitor, type PluginListenerHandle} from '@capacitor/core';
 import {UrlInterceptor} from '@web/app/url_interceptor';
 
-export class CapacitorAndroidUrlInterceptor extends UrlInterceptor {
+export class CapacitorUrlInterceptor extends UrlInterceptor {
   private appUrlOpenHandle?: PluginListenerHandle;
+  // On iOS the cold-start URL reaches JS twice: once from App.getLaunchUrl(), and
+  // again from appUrlOpen, which the native plugin fires with retainUntilConsumed
+  // and replays to the first listener. Hold it here so the replay can be dropped.
+  // Android delivers the launch URL only once, so nothing is armed there.
+  private duplicateColdStartUrl?: string;
+
   private readonly handlePageHide = () => {
     void this.destroy();
   };
@@ -28,7 +34,7 @@ export class CapacitorAndroidUrlInterceptor extends UrlInterceptor {
     // reloads, so tear ours down before unload to avoid duplicate dispatches.
     window.addEventListener('pagehide', this.handlePageHide);
     void this.wireAppUrlHandling().catch((err: unknown) => {
-      console.warn('Capacitor Android URL interception setup failed', err);
+      console.warn('Capacitor URL interception setup failed', err);
     });
   }
 
@@ -42,16 +48,30 @@ export class CapacitorAndroidUrlInterceptor extends UrlInterceptor {
     try {
       const launch = await App.getLaunchUrl();
       if (launch?.url) {
+        if (Capacitor.getPlatform() === 'ios') {
+          this.duplicateColdStartUrl = launch.url;
+        }
         this.executeListeners(launch.url);
       }
     } catch {
       // No launch URL (normal when the app is opened from the launcher).
     }
 
+    // Registering the listener is what triggers the retained replay on iOS, so
+    // this must run after the launch URL above has been recorded.
     this.appUrlOpenHandle = await App.addListener('appUrlOpen', ({url}) => {
-      if (url) {
-        this.executeListeners(url);
+      if (!url) {
+        return;
       }
+      if (this.duplicateColdStartUrl !== undefined) {
+        const isReplay = url === this.duplicateColdStartUrl;
+        // Only the first event can be the replay; later opens are genuine.
+        this.duplicateColdStartUrl = undefined;
+        if (isReplay) {
+          return;
+        }
+      }
+      this.executeListeners(url);
     });
   }
 }
