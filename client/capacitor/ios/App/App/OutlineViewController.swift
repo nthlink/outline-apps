@@ -114,18 +114,6 @@ class OutlineViewController: CAPBridgeViewController {
                webView.url?.absoluteString == "about:blank"
     }
         
-    // /**
-    //  * Registers the custom Outline plugin with the Capacitor bridge.
-    //  * This plugin provides VPN functionality and other native features.
-    //  */
-    // private func registerOutlinePlugin() {
-    //     guard let bridge = self.bridge as? CapacitorBridge else {
-    //         return
-    //     }
-        
-    //     let plugin = CapacitorPluginOutline()
-    //     bridge.registerPluginInstance(plugin)
-    // }
     
     /**
      * Enables Safari Web Inspector for debugging.
