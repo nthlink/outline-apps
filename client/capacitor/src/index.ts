@@ -35,6 +35,7 @@ import {NoOpVpnInstaller, type VpnInstaller} from '@web/app/vpn_installer';
 import {SentryErrorReporter, type Tags} from '@web/shared/error_reporter';
 
 import {CapacitorBrowserMethodChannel} from './browser_method_channel';
+import {migrateLegacyCordovaStorageIfNeeded} from './cordova_storage_migration';
 import {CapacitorAndroidUrlInterceptor} from './capacitor_android_url_interceptor';
 
 interface AsyncVpnApi extends VpnApi {
@@ -233,6 +234,11 @@ installDefaultMethodChannel(
 );
 wireExternalLinkHandling();
 
-main(new CapacitorPlatform()).catch(e => {
-  console.error('main() failed: ', e);
-});
+// The migration has to finish first: main() builds the server repository from
+// localStorage, so replaying the Cordova data afterwards would leave the user
+// staring at an empty server list until the next restart.
+migrateLegacyCordovaStorageIfNeeded()
+  .then(() => main(new CapacitorPlatform()))
+  .catch(e => {
+    console.error('main() failed: ', e);
+  });

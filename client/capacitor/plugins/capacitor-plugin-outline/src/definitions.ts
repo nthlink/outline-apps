@@ -30,6 +30,12 @@ export interface CapacitorPluginOutline {
   isRunning(options: {tunnelId: string}): Promise<{isRunning: boolean}>;
   initializeErrorReporting(options: {apiKey: string}): Promise<void>;
   reportEvents(options: {uuid: string}): Promise<void>;
+  /**
+   * Reads the localStorage written by the Cordova build under its file://
+   * origin, which Capacitor's https://localhost origin cannot see. Android only;
+   * `legacyStorage` is a JSON object string, or null when it could not be read.
+   */
+  getLegacyCordovaLocalStorage(): Promise<{legacyStorage: string | null}>;
   quitApplication(): Promise<void>;
   addListener(
     eventName: string,

@@ -22,13 +22,22 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.net.VpnService
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import org.json.JSONException
+import org.json.JSONTokener
 import org.outline.log.OutlineLogger
 import org.outline.log.SentryErrorReporter
 import org.outline.vpn.Errors
@@ -269,6 +278,82 @@ class CapacitorPluginOutline : Plugin() {
     }
   }
 
+  /**
+   * Reads the localStorage the Cordova build wrote under the file:// origin.
+   *
+   * The Cordova app ran from file:///android_asset/www/ (config.xml sets
+   * AndroidInsecureFileModeEnabled), while Capacitor serves https://localhost.
+   * Chromium partitions storage by origin, so the servers and settings written
+   * by the Cordova build are invisible to the Capacitor WebView. Loading any
+   * file:// document off-screen gives us a context that can read them, which we
+   * then hand back to the web layer to replay into the new origin.
+   *
+   * Resolves with a JSON object string, or a null `legacyStorage` if the legacy
+   * storage could not be read. It never rejects on timeout: the web layer awaits
+   * this during startup, so a hang here would mean an app that never launches.
+   */
+  @PluginMethod
+  fun getLegacyCordovaLocalStorage(call: PluginCall) {
+    val currentActivity = activity ?: run {
+      call.reject("No active activity to read legacy storage.")
+      return
+    }
+
+    currentActivity.runOnUiThread {
+      val handler = Handler(Looper.getMainLooper())
+      val settled = AtomicBoolean(false)
+      var webView: WebView? = null
+
+      // Resolves the call exactly once, whichever of load / error / timeout wins
+      // the race, and disposes of the WebView. Only ever called on the UI thread.
+      fun settle(legacyStorage: String?) {
+        if (!settled.compareAndSet(false, true)) return
+        handler.removeCallbacksAndMessages(null)
+        val doomed = webView
+        webView = null
+        call.resolve(JSObject().apply { put("legacyStorage", legacyStorage) })
+        // Tearing a WebView down from inside its own evaluateJavascript callback
+        // crashes on some WebView builds, so destroy it on a later loop turn.
+        handler.post { doomed?.destroy() }
+      }
+
+      try {
+        webView = WebView(currentActivity).apply {
+          settings.javaScriptEnabled = true
+          settings.domStorageEnabled = true
+          // Mirror what cordova-android's SystemWebViewEngine applies under
+          // AndroidInsecureFileModeEnabled, so this WebView resolves the
+          // file:// origin the same way the Cordova build did.
+          settings.allowFileAccess = true
+          settings.allowUniversalAccessFromFileURLs = true
+
+          webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+              // loadUrl is asynchronous: the document only has a file:// origin
+              // (and localStorage) once it has finished loading.
+              view.evaluateJavascript(DUMP_LOCAL_STORAGE_JS) { result ->
+                settle(decodeJsString(result))
+              }
+            }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError,
+            ) {
+              if (request.isForMainFrame) settle(null)
+            }
+          }
+        }
+
+        webView?.loadUrl(LEGACY_STORAGE_BRIDGE_URL)
+        handler.postDelayed({ settle(null) }, LEGACY_STORAGE_TIMEOUT_MS)
+      } catch (e: Exception) {
+        settle(null)
+      }
+    }
+  }
+
   @PluginMethod
   fun quitApplication(call: PluginCall) {
     val currentActivity = activity ?: run {
@@ -398,6 +483,45 @@ class CapacitorPluginOutline : Plugin() {
   companion object {
     private const val REQUEST_CODE_PREPARE_VPN = 100
     private const val STATUS_CHANGE_EVENT = "onStatusChange"
+
+    // Any file:// document shares the single file:// storage origin, so this
+    // reads the same namespace the Cordova build wrote to under www/.
+    private const val LEGACY_STORAGE_BRIDGE_URL =
+        "file:///android_asset/public/migrate.html"
+    private const val LEGACY_STORAGE_TIMEOUT_MS = 5_000L
+
+    // Injected rather than defined in migrate.html, so the page stays inert and
+    // the two halves of this can never drift out of sync.
+    private const val DUMP_LOCAL_STORAGE_JS = """
+      (function () {
+        try {
+          var dump = {};
+          for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            dump[key] = localStorage.getItem(key);
+          }
+          return JSON.stringify(dump);
+        } catch (e) {
+          return null;
+        }
+      })();
+    """
+  }
+}
+
+/**
+ * Unwraps the JSON encoding [WebView.evaluateJavascript] applies to its result.
+ *
+ * The script returns a JSON *string*, so the callback receives that string
+ * JSON-encoded a second time (`"{\"k\":\"v\"}"`). Decoding one layer here leaves
+ * the web layer with a plain object string it can parse exactly once.
+ */
+private fun decodeJsString(result: String?): String? {
+  if (result.isNullOrEmpty() || result == "null") return null
+  return try {
+    JSONTokener(result).nextValue() as? String
+  } catch (e: JSONException) {
+    null
   }
 }
 
