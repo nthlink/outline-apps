@@ -34,8 +34,8 @@ import {NoOpVpnInstaller, type VpnInstaller} from '@web/app/vpn_installer';
 import {SentryErrorReporter, type Tags} from '@web/shared/error_reporter';
 
 import {CapacitorBrowserMethodChannel} from './browser_method_channel';
-import {migrateLegacyCordovaStorageIfNeeded} from './cordova_storage_migration';
 import {CapacitorAndroidUrlInterceptor} from './capacitor_android_url_interceptor';
+import {migrateLegacyCordovaStorageIfNeeded} from './cordova_storage_migration';
 
 interface AsyncVpnApi extends VpnApi {
   onStatusChange(

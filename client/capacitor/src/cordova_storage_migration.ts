@@ -87,10 +87,15 @@ export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
     return;
   }
 
-  for (const [key, value] of Object.entries(legacy as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(
+    legacy as Record<string, unknown>
+  )) {
     // Never clobber a key this install has already written: whatever is in the
     // Capacitor origin is newer than the Cordova snapshot.
-    if (typeof value === 'string' && window.localStorage.getItem(key) === null) {
+    if (
+      typeof value === 'string' &&
+      window.localStorage.getItem(key) === null
+    ) {
       window.localStorage.setItem(key, value);
     }
   }

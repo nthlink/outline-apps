@@ -54,7 +54,9 @@ export class CapacitorPluginOutlineWeb
     throw this.unimplemented('Not implemented on web.');
   }
 
-  async getLegacyCordovaLocalStorage(): Promise<{legacyStorage: string | null}> {
+  async getLegacyCordovaLocalStorage(): Promise<{
+    legacyStorage: string | null;
+  }> {
     // Resolves rather than throwing: there is no Cordova file:// origin to
     // migrate from on web, and this runs on the startup path.
     return {legacyStorage: null};
