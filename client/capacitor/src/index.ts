@@ -15,7 +15,6 @@ import {Browser} from '@capacitor/browser';
 import {Capacitor} from '@capacitor/core';
 import type {PluginListenerHandle} from '@capacitor/core';
 import {CapacitorPluginOutline} from '@capacitor-plugin-outline';
-import * as Sentry from '@sentry/browser';
 import {AbstractClipboard} from '@web/app/clipboard';
 import type {EnvironmentVariables} from '@web/app/environment';
 import {main} from '@web/app/main';
@@ -68,15 +67,20 @@ class CapacitorErrorReporter extends SentryErrorReporter {
     }
   }
 
-  async report(
-    userFeedback: string,
+  async sendFeedback(
+    message: string,
     feedbackCategory: string,
     userEmail?: string
-  ): Promise<void> {
-    await super.report(userFeedback, feedbackCategory, userEmail);
+  ): Promise<string> {
+    const eventId = await super.sendFeedback(
+      message,
+      feedbackCategory,
+      userEmail
+    );
     await CapacitorPluginOutline.reportEvents({
-      uuid: Sentry.lastEventId() || '',
+      uuid: eventId,
     });
+    return eventId;
   }
 }
 
