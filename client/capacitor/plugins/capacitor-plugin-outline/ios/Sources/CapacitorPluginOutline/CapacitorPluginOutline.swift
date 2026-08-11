@@ -24,6 +24,19 @@ import OutlineTunnel
 import Sentry
 import Tun2socks
 
+// DUPLICATED CODE — keep in sync with the Cordova plugin:
+//     client/src/cordova/plugin/apple/src/OutlinePlugin.swift
+//
+// Duplicated in this file: `TunnelStatus` below, a second verbatim declaration
+// of Cordova's enum of the same name — if the raw values drift apart, one
+// platform silently reports the wrong VPN state — and the exposed method
+// surface, which mirrors the methods OutlinePlugin exposes to Cordova. Adding a
+// method to one plugin means adding it to the other.
+//
+// The bulk of the duplication is the reimplemented plugin body next door. See
+// the full note at the top of CapacitorPluginOutlineImplementation.swift before
+// changing anything here.
+
 public enum TunnelStatus: Int {
     case connected = 0
     case disconnected = 1
