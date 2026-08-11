@@ -242,6 +242,9 @@ wireExternalLinkHandling();
 // localStorage, so replaying the Cordova data afterwards would leave the user
 // staring at an empty server list until the next restart.
 migrateLegacyCordovaStorageIfNeeded()
+  .catch(e => {
+    console.error('Storage migration failed: ', e);
+  })
   .then(() => main(new CapacitorPlatform()))
   .catch(e => {
     console.error('main() failed: ', e);
