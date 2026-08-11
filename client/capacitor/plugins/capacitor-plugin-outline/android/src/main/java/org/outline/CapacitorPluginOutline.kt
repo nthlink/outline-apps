@@ -37,7 +37,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONException
-import org.json.JSONTokener
+import org.json.JSONObject
 import org.outline.log.OutlineLogger
 import org.outline.log.SentryErrorReporter
 import org.outline.vpn.Errors
@@ -288,9 +288,16 @@ class CapacitorPluginOutline : Plugin() {
    * file:// document off-screen gives us a context that can read them, which we
    * then hand back to the web layer to replay into the new origin.
    *
-   * Resolves with a JSON object string, or a null `legacyStorage` if the legacy
-   * storage could not be read. It never rejects on timeout: the web layer awaits
-   * this during startup, so a hang here would mean an app that never launches.
+   * `legacyStorage` distinguishes two outcomes the caller must treat differently:
+   *   - an object of key/value pairs: the legacy origin was read. An empty object
+   *     is a perfectly good result — it means there was nothing stored there —
+   *     and the caller should consider the migration done rather than retrying.
+   *   - null: the read itself failed (no activity, the bridge page did not load,
+   *     the dump script threw, or the timeout fired). Nothing is known about the
+   *     legacy origin, so the caller should try again on a later launch.
+   *
+   * It never rejects on timeout: the web layer awaits this during startup, so a
+   * hang here would mean an app that never launches.
    */
   @PluginMethod
   fun getLegacyCordovaLocalStorage(call: PluginCall) {
@@ -306,12 +313,19 @@ class CapacitorPluginOutline : Plugin() {
 
       // Resolves the call exactly once, whichever of load / error / timeout wins
       // the race, and disposes of the WebView. Only ever called on the UI thread.
-      fun settle(legacyStorage: String?) {
+      fun settle(legacyStorage: JSObject?) {
         if (!settled.compareAndSet(false, true)) return
         handler.removeCallbacksAndMessages(null)
         val doomed = webView
         webView = null
-        call.resolve(JSObject().apply { put("legacyStorage", legacyStorage) })
+        call.resolve(
+            JSObject().apply {
+              // JSONObject.put drops the key entirely when given a Kotlin null,
+              // which would reach the web layer as undefined. JSONObject.NULL
+              // keeps the key and surfaces an explicit null instead.
+              put("legacyStorage", legacyStorage ?: JSONObject.NULL)
+            }
+        )
         // Tearing a WebView down from inside its own evaluateJavascript callback
         // crashes on some WebView builds, so destroy it on a later loop turn.
         handler.post { doomed?.destroy() }
@@ -319,20 +333,23 @@ class CapacitorPluginOutline : Plugin() {
 
       try {
         webView = WebView(currentActivity).apply {
+          // Only these two are load bearing: the injected script needs JavaScript,
+          // and localStorage needs DOM storage. Deliberately NOT setting
+          // allowFileAccess or allowUniversalAccessFromFileURLs, which
+          // cordova-android turns on under AndroidInsecureFileModeEnabled:
+          // the first governs file *system* access and is not required to reach
+          // file:///android_asset, and the second only permits cross-origin
+          // access from a file:// document, which this inert page never makes.
+          // Both are deprecated and widen the attack surface for no benefit here.
           settings.javaScriptEnabled = true
           settings.domStorageEnabled = true
-          // Mirror what cordova-android's SystemWebViewEngine applies under
-          // AndroidInsecureFileModeEnabled, so this WebView resolves the
-          // file:// origin the same way the Cordova build did.
-          settings.allowFileAccess = true
-          settings.allowUniversalAccessFromFileURLs = true
 
           webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
               // loadUrl is asynchronous: the document only has a file:// origin
               // (and localStorage) once it has finished loading.
               view.evaluateJavascript(DUMP_LOCAL_STORAGE_JS) { result ->
-                settle(decodeJsString(result))
+                settle(decodeLocalStorage(result))
               }
             }
 
@@ -492,6 +509,10 @@ class CapacitorPluginOutline : Plugin() {
 
     // Injected rather than defined in migrate.html, so the page stays inert and
     // the two halves of this can never drift out of sync.
+    //
+    // Returns the object itself, not a JSON string: evaluateJavascript already
+    // hands the result back as JSON text, so stringifying here would encode it
+    // twice and force the caller to unwrap two layers.
     private const val DUMP_LOCAL_STORAGE_JS = """
       (function () {
         try {
@@ -500,7 +521,7 @@ class CapacitorPluginOutline : Plugin() {
             var key = localStorage.key(i);
             dump[key] = localStorage.getItem(key);
           }
-          return JSON.stringify(dump);
+          return dump;
         } catch (e) {
           return null;
         }
@@ -510,16 +531,19 @@ class CapacitorPluginOutline : Plugin() {
 }
 
 /**
- * Unwraps the JSON encoding [WebView.evaluateJavascript] applies to its result.
+ * Parses the JSON text [WebView.evaluateJavascript] hands back into an object.
  *
- * The script returns a JSON *string*, so the callback receives that string
- * JSON-encoded a second time (`"{\"k\":\"v\"}"`). Decoding one layer here leaves
- * the web layer with a plain object string it can parse exactly once.
+ * The WebView bridge is textual, so this is the one place the dump has to be
+ * deserialized. Doing it here means the plugin result carries a real key/value
+ * object and no layer above has to know it was ever serialized.
+ *
+ * Returns null when the script reported failure (`null`) or produced something
+ * that is not a JSON object.
  */
-private fun decodeJsString(result: String?): String? {
+private fun decodeLocalStorage(result: String?): JSObject? {
   if (result.isNullOrEmpty() || result == "null") return null
   return try {
-    JSONTokener(result).nextValue() as? String
+    JSObject(result)
   } catch (e: JSONException) {
     null
   }

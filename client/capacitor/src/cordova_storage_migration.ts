@@ -17,18 +17,15 @@ import {CapacitorPluginOutline} from '@capacitor-plugin-outline';
 
 // Set once the legacy storage has been read and replayed, so the off-screen
 // WebView is only ever spun up on the first launch after the upgrade.
-const MIGRATION_COMPLETED_KEY = 'cordova_migration_completed';
-// Reading the legacy storage can fail transiently, so it is worth retrying on a
-// later launch — but not forever, since each failed attempt costs the native
-// timeout before the app can start.
-const MIGRATION_ATTEMPTS_KEY = 'cordova_migration_attempts';
-const MAX_MIGRATION_ATTEMPTS = 3;
-
-function readAttempts(): number {
-  const raw = window.localStorage.getItem(MIGRATION_ATTEMPTS_KEY);
-  const parsed = raw === null ? 0 : Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
+//
+// There is deliberately no attempt limit. A failed read leaves the legacy
+// file:// data untouched, so the situation is always recoverable — whereas
+// giving up would make it permanent, and the thing being lost is the user's
+// whole server list. Retrying is close to free: every native failure path
+// (no activity, load error, WebView unavailable) returns in milliseconds. Only
+// a page that starts loading and never finishes costs the native timeout, and
+// that case is rare enough not to be worth trading the data for.
+const MIGRATION_COMPLETED_KEY = 'cordova_2026_migration_completed';
 
 /**
  * Replays the localStorage of a Cordova install into the Capacitor origin.
@@ -52,16 +49,7 @@ export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
     return;
   }
 
-  const attempts = readAttempts();
-  if (attempts >= MAX_MIGRATION_ATTEMPTS) {
-    // Out of retries. Mark it done so we stop paying the timeout every launch.
-    window.localStorage.setItem(MIGRATION_COMPLETED_KEY, 'true');
-    return;
-  }
-  // Recorded before the call, so an attempt that kills the app still counts.
-  window.localStorage.setItem(MIGRATION_ATTEMPTS_KEY, String(attempts + 1));
-
-  let legacyStorage: string | null = null;
+  let legacyStorage: Record<string, string> | null = null;
   try {
     ({legacyStorage} =
       await CapacitorPluginOutline.getLegacyCordovaLocalStorage());
@@ -71,25 +59,20 @@ export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
   }
 
   if (legacyStorage === null) {
-    // The native side could not read the legacy origin; retry on a later launch.
+    // Null means the native side could not read the legacy origin at all — no
+    // activity, the bridge page failed to load, or the dump script threw. That
+    // is NOT the same as "there was nothing to migrate": a legacy origin that
+    // exists but is empty comes back as an empty object, which falls through
+    // below and completes the migration. Only a genuine read failure lands
+    // here, and it leaves the marker unset so a later launch retries.
     return;
   }
 
-  let legacy: unknown;
-  try {
-    legacy = JSON.parse(legacyStorage);
-  } catch (e) {
-    console.warn('Could not parse legacy Cordova localStorage', e);
-    return;
-  }
-  if (typeof legacy !== 'object' || legacy === null || Array.isArray(legacy)) {
-    console.warn('Legacy Cordova localStorage was not an object');
-    return;
-  }
-
-  for (const [key, value] of Object.entries(
-    legacy as Record<string, unknown>
-  )) {
+  // An empty object is the expected result for a fresh install, or for a
+  // Cordova install that never wrote anything. Nothing is copied and the loop
+  // simply does not run — that is a successful migration, not a failed one, so
+  // it confirms below like any other and never spins up the WebView again.
+  for (const [key, value] of Object.entries(legacyStorage)) {
     // Never clobber a key this install has already written: whatever is in the
     // Capacitor origin is newer than the Cordova snapshot.
     if (
@@ -100,7 +83,8 @@ export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
     }
   }
 
-  // Only on a clean pass, so a transient failure above gets another attempt.
+  // Reached only when the legacy origin was read successfully, whether or not
+  // it held anything. Every early return above leaves this unset, so the next
+  // launch tries again rather than stranding the user's servers.
   window.localStorage.setItem(MIGRATION_COMPLETED_KEY, 'true');
-  window.localStorage.removeItem(MIGRATION_ATTEMPTS_KEY);
 }

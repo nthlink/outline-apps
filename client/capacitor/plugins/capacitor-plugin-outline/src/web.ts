@@ -55,7 +55,7 @@ export class CapacitorPluginOutlineWeb
   }
 
   async getLegacyCordovaLocalStorage(): Promise<{
-    legacyStorage: string | null;
+    legacyStorage: Record<string, string> | null;
   }> {
     // Resolves rather than throwing: there is no Cordova file:// origin to
     // migrate from on web, and this runs on the startup path.
