@@ -37,7 +37,6 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONException
-import org.json.JSONObject
 import org.outline.log.OutlineLogger
 import org.outline.log.SentryErrorReporter
 import org.outline.vpn.Errors
@@ -288,21 +287,22 @@ class CapacitorPluginOutline : Plugin() {
    * file:// document off-screen gives us a context that can read them, which we
    * then hand back to the web layer to replay into the new origin.
    *
-   * `legacyStorage` distinguishes two outcomes the caller must treat differently:
-   *   - an object of key/value pairs: the legacy origin was read. An empty object
-   *     is a perfectly good result — it means there was nothing stored there —
-   *     and the caller should consider the migration done rather than retrying.
-   *   - null: the read itself failed (no activity, the bridge page did not load,
-   *     the dump script threw, or the timeout fired). Nothing is known about the
-   *     legacy origin, so the caller should try again on a later launch.
+   * Resolves with the legacy key/value pairs. An empty object is a perfectly good
+   * result — it means the origin was read and held nothing — so the caller should
+   * treat it as a completed migration rather than retrying.
    *
-   * It never rejects on timeout: the web layer awaits this during startup, so a
-   * hang here would mean an app that never launches.
+   * Rejects when the read could not be performed at all: no activity, the bridge
+   * page failed to load, the dump script threw, or the timeout fired. Nothing is
+   * known about the legacy origin in that case, so the caller should try again on
+   * a later launch. See the LEGACY_STORAGE_* codes for which one occurred.
+   *
+   * It always completes, one way or the other: the web layer awaits this during
+   * startup, so an outstanding call would mean an app that never launches.
    */
   @PluginMethod
   fun getLegacyCordovaLocalStorage(call: PluginCall) {
     val currentActivity = activity ?: run {
-      call.reject("No active activity to read legacy storage.")
+      call.reject("No active activity to read legacy storage.", ERROR_NO_ACTIVITY)
       return
     }
 
@@ -311,25 +311,24 @@ class CapacitorPluginOutline : Plugin() {
       val settled = AtomicBoolean(false)
       var webView: WebView? = null
 
-      // Resolves the call exactly once, whichever of load / error / timeout wins
+      // Completes the call exactly once, whichever of load / error / timeout wins
       // the race, and disposes of the WebView. Only ever called on the UI thread.
-      fun settle(legacyStorage: JSObject?) {
+      fun settle(complete: () -> Unit) {
         if (!settled.compareAndSet(false, true)) return
         handler.removeCallbacksAndMessages(null)
         val doomed = webView
         webView = null
-        call.resolve(
-            JSObject().apply {
-              // JSONObject.put drops the key entirely when given a Kotlin null,
-              // which would reach the web layer as undefined. JSONObject.NULL
-              // keeps the key and surfaces an explicit null instead.
-              put("legacyStorage", legacyStorage ?: JSONObject.NULL)
-            }
-        )
+        complete()
         // Tearing a WebView down from inside its own evaluateJavascript callback
         // crashes on some WebView builds, so destroy it on a later loop turn.
         handler.post { doomed?.destroy() }
       }
+
+      // Success carries the legacy pairs, which may legitimately be empty.
+      fun succeed(storage: JSObject) = settle { call.resolve(storage) }
+      // Failure means nothing is known about the legacy origin. The code lets the
+      // caller tell a cheap failure from a timeout without another native change.
+      fun fail(message: String, code: String) = settle { call.reject(message, code) }
 
       try {
         webView = WebView(currentActivity).apply {
@@ -349,7 +348,12 @@ class CapacitorPluginOutline : Plugin() {
               // loadUrl is asynchronous: the document only has a file:// origin
               // (and localStorage) once it has finished loading.
               view.evaluateJavascript(DUMP_LOCAL_STORAGE_JS) { result ->
-                settle(decodeLocalStorage(result))
+                val storage = decodeLocalStorage(result)
+                if (storage == null) {
+                  fail("Could not read the legacy local storage.", ERROR_UNREADABLE)
+                } else {
+                  succeed(storage)
+                }
               }
             }
 
@@ -358,15 +362,25 @@ class CapacitorPluginOutline : Plugin() {
                 request: WebResourceRequest,
                 error: WebResourceError,
             ) {
-              if (request.isForMainFrame) settle(null)
+              if (request.isForMainFrame) {
+                fail(
+                    "Could not load the legacy storage bridge page: ${error.description}",
+                    ERROR_LOAD_FAILED,
+                )
+              }
             }
           }
         }
 
         webView?.loadUrl(LEGACY_STORAGE_BRIDGE_URL)
-        handler.postDelayed({ settle(null) }, LEGACY_STORAGE_TIMEOUT_MS)
+        // The web layer awaits this during startup, so the call must always be
+        // completed — a silent hang here would be an app that never launches.
+        handler.postDelayed(
+            { fail("Timed out reading the legacy local storage.", ERROR_TIMEOUT) },
+            LEGACY_STORAGE_TIMEOUT_MS,
+        )
       } catch (e: Exception) {
-        settle(null)
+        fail("Could not open a WebView on the legacy origin: ${e.message}", ERROR_UNAVAILABLE)
       }
     }
   }
@@ -506,6 +520,16 @@ class CapacitorPluginOutline : Plugin() {
     private const val LEGACY_STORAGE_BRIDGE_URL =
         "file:///android_asset/public/migrate.html"
     private const val LEGACY_STORAGE_TIMEOUT_MS = 5_000L
+
+    // Rejection codes. Every one of these means the legacy origin could not be
+    // read, so nothing is known about it and the caller should try again later.
+    // They are distinguished so the caller can treat the one slow failure
+    // (a timeout) differently from the ones that return in milliseconds.
+    private const val ERROR_NO_ACTIVITY = "LEGACY_STORAGE_NO_ACTIVITY"
+    private const val ERROR_UNAVAILABLE = "LEGACY_STORAGE_UNAVAILABLE"
+    private const val ERROR_LOAD_FAILED = "LEGACY_STORAGE_LOAD_FAILED"
+    private const val ERROR_UNREADABLE = "LEGACY_STORAGE_UNREADABLE"
+    private const val ERROR_TIMEOUT = "LEGACY_STORAGE_TIMEOUT"
 
     // Injected rather than defined in migrate.html, so the page stays inert and
     // the two halves of this can never drift out of sync.

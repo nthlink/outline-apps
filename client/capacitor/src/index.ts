@@ -241,6 +241,12 @@ wireExternalLinkHandling();
 // The migration has to finish first: main() builds the server repository from
 // localStorage, so replaying the Cordova data afterwards would leave the user
 // staring at an empty server list until the next restart.
+//
+// Keep the .catch BEFORE the .then. In this order a failed migration is handled
+// here and main() still runs, so the app starts without the migrated data. The
+// forms look interchangeable, but `.then(main).catch(...)` would skip main()
+// entirely on a migration failure — an app that never launches, which is far
+// worse than one that launches missing its servers.
 migrateLegacyCordovaStorageIfNeeded()
   .catch(e => {
     console.error('Storage migration failed: ', e);
