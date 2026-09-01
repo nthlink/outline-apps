@@ -37,7 +37,12 @@ const MIGRATION_COMPLETED_KEY = 'cordova_2026_migration_completed';
  *
  * Must be awaited before the app reads storage, otherwise the server repository
  * is built from the empty namespace and the migrated data only appears after a
- * restart. Never throws: a failure here must not stop the app from starting.
+ * restart.
+ *
+ * Throws when the legacy origin could not be read, wrapping the native error as
+ * the cause. The caller is responsible for catching and logging it, and must
+ * still start the app: failing to migrate costs the user their server list, but
+ * failing to launch costs them the app entirely.
  */
 export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
   // Android is the only platform whose origin changed. iOS keeps the Cordova
@@ -49,23 +54,19 @@ export async function migrateLegacyCordovaStorageIfNeeded(): Promise<void> {
     return;
   }
 
-  let legacyStorage: Record<string, string> | null = null;
+  let legacyStorage: Record<string, string>;
   try {
-    ({legacyStorage} =
-      await CapacitorPluginOutline.getLegacyCordovaLocalStorage());
+    legacyStorage = await CapacitorPluginOutline.getLegacyCordovaLocalStorage();
   } catch (e) {
-    console.warn('Could not read legacy Cordova localStorage', e);
-    return;
-  }
-
-  if (legacyStorage === null) {
-    // Null means the native side could not read the legacy origin at all — no
-    // activity, the bridge page failed to load, or the dump script threw. That
-    // is NOT the same as "there was nothing to migrate": a legacy origin that
-    // exists but is empty comes back as an empty object, which falls through
-    // below and completes the migration. Only a genuine read failure lands
-    // here, and it leaves the marker unset so a later launch retries.
-    return;
+    // A rejection means the legacy origin could not be read at all — no activity,
+    // the bridge page failed to load, the dump script threw, or it timed out. It
+    // does NOT mean there was nothing to migrate, which resolves as an empty
+    // object. Rethrowing leaves the completion marker unset, so the next launch
+    // tries again rather than stranding the user's servers. The native error is
+    // kept as the cause, so its LEGACY_STORAGE_* code survives for the handler.
+    throw new Error('failed to read the legacy Cordova localStorage', {
+      cause: e,
+    });
   }
 
   // An empty object is the expected result for a fresh install, or for a
