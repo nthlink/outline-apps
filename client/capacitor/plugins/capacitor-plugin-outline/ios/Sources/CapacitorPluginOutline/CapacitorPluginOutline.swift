@@ -304,7 +304,7 @@ public class CapacitorPluginOutline: CAPPlugin, CAPBridgedPlugin {
         }
 
         notifyListeners(
-            "vpnStatus",
+            "onStatusChange",
             data: [
                 "id": tunnelId,
                 "status": mappedStatus
