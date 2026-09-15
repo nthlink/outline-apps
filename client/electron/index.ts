@@ -59,6 +59,13 @@ const debugMode = process.env.OUTLINE_DEBUG === 'true';
 const IS_LINUX = os.platform() === 'linux';
 const IS_WINDOWS = os.platform() === 'win32';
 
+if (IS_LINUX) {
+  // GPU rendering freezes the UI on some Linux systems (buttons never paint on
+  // the first-run screen): https://github.com/OutlineFoundation/outline-apps/issues/2794
+  // Must be set before the app's "ready" event.
+  app.commandLine.appendSwitch('disable-gpu');
+}
+
 // Used for the auto-connect feature. There will be a tunnel in store
 // if the user was connected at shutdown.
 const tunnelStore = new TunnelStore(app.getPath('userData'));
@@ -144,6 +151,7 @@ function setupWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
@@ -202,6 +210,11 @@ function setupWindow(): void {
     event.preventDefault();
     mainWindow.hide();
   });
+
+  mainWindow.on('closed', () => {
+    // Clear the reference so callers can detect that the window is gone.
+    mainWindow = null;
+  });
   if (os.platform() === 'win32') {
     // On Windows we hide the app from the taskbar.
     mainWindow.on('minimize', (event: Event) => {
@@ -223,19 +236,24 @@ function setupWindow(): void {
   // The client is a single page app - loading any other page means the
   // user clicked on one of the Privacy, Terms, etc., links. These should
   // open in the user's browser.
-  mainWindow.webContents.on('will-navigate', (event: Event, url: string) => {
-    try {
-      const parsed: URL = new URL(url);
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(url);
-      } else {
-        console.warn(`Refusing to open URL with protocol "${parsed.protocol}"`);
+  mainWindow.webContents.on(
+    'will-navigate',
+    (event: Electron.Event, url: string) => {
+      try {
+        const parsed: URL = new URL(url);
+        if (parsed.protocol === 'https:') {
+          shell.openExternal(url);
+        } else {
+          console.warn(
+            `Refusing to open URL with protocol "${parsed.protocol}"`
+          );
+        }
+      } catch (e) {
+        console.warn(`Could not parse URL ${url}:`, e);
       }
-    } catch (e) {
-      console.warn(`Could not parse URL ${url}:`, e);
+      event.preventDefault();
     }
-    event.preventDefault();
-  });
+  );
 }
 
 function updateTray(status: TunnelStatus) {
@@ -418,7 +436,7 @@ async function stopVpn() {
 function setUiTunnelStatus(status: TunnelStatus, tunnelId: string) {
   // TODO: refactor channel name and namespace to a constant
   const event = 'outline-ipc-proxy-status';
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(event, tunnelId, status);
   } else {
     console.warn(`received ${event} event but no mainWindow to notify`);
